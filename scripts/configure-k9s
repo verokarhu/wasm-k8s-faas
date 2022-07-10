@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -e
+
+if command -v ./k9s; then exit 0; fi
+
+K9S_CHECKSUM=baa54edb4aace44f2c713f3bffe75ee60994f6a8244d3e50b940e8367922e454
+K9S_FILENAME=k9s_Linux_x86_64.tar.gz
+
+# Setup kubeconfig
+mkdir -p ~/.kube
+sudo microk8s config > ~/.kube/config
+
+# Install k9s
+curl -L "https://github.com/derailed/k9s/releases/download/v0.25.21/$K9S_FILENAME" -o "$K9S_FILENAME"
+
+if [ "$(shasum -a 256 $K9S_FILENAME | cut -f 1 -d ' ')" != "$K9S_CHECKSUM" ]; then
+  echo "Failed to download k9s"
+  exit 1
+fi
+
+tar -xf "$K9S_FILENAME" k9s
+rm "$K9S_FILENAME"

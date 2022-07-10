@@ -1,0 +1,15 @@
+REPO=wasm-k8s-faas
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# Checks to make sure that the user is logged into cloud provider and logs the user in if not
+function check_auth() {
+  if gcloud auth list 2>&1 | grep -q 'No credentialed accounts.' || gcloud auth application-default print-access-token 2>&1 | grep -q "Reauthentication required."; then
+    gcloud auth application-default login
+    gcloud auth login
+  fi
+
+  gcloud auth print-access-token >/dev/null
+  gcloud auth application-default print-access-token >/dev/null
+
+  echo "Authentication done."
+}

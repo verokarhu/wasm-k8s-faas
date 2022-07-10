@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -e
+
+IP=$(sudo microk8s kubectl get service kourier -n kourier-system -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+echo "Calling OCI-based service 5*5 times with a wait between batches to let the service scale down"
+for i in {1..5}
+do
+  echo
+  for j in {1..5}
+  do
+    curl -o /dev/null -s -H "host: echo-oci.echo.example.com" -d "$(uuidgen)" -w "Call #$i.$j: Total time %{time_total}s" $IP
+    echo
+    sleep 1s
+  done
+
+  sleep 20s
+done

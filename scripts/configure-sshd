@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -e
+
+WORKDIR=$(pwd)
+
+# Patch sshd configuration file to disable locale environment variable propagation
+pushd /etc/ssh
+git apply "$WORKDIR/config/sshd_config.patch"
+systemctl restart sshd
+popd

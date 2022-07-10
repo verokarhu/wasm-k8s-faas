@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -e
+
+source "$(dirname "$0")/common"
+
+check_auth
+
+# Provision VM
+pushd "$REPO_ROOT/terraform"
+terraform init
+terraform apply -auto-approve
+BUILDER_KEY=$(terraform output -raw builder_key)
+HOSTNAME=$(terraform output -raw hostname)
+PROJECT=$(terraform output -raw project)
+ZONE=$(terraform output -raw zone)
+popd
+
+echo -n "Waiting for VM to be available"
+until gcloud compute ssh --zone "$ZONE" --project "$PROJECT" "$HOSTNAME" --command ":" 2>/dev/null; do
+  echo -n "."
+  sleep 2
+done
+
+echo
+
+command() {
+  gcloud compute ssh --zone "$ZONE" --project "$PROJECT" "$HOSTNAME" --command "if [ ! -f ~/$1 ]; then $2 && touch ~/$1; fi"
+  echo "Finished $1."
+}
+
+# Configure VM
+command clone "git clone https://github.com/verokarhu/$REPO.git"
+command sshd-config "cd $REPO && sudo scripts/configure-sshd"
+command vm-config "cd $REPO && sudo scripts/configure-vm"
+command microk8s-config "cd $REPO && sudo scripts/configure-microk8s"
+command app-config "cd $REPO && BUILDER_KEY=$BUILDER_KEY PROJECT=$PROJECT scripts/configure-application"

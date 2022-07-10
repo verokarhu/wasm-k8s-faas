@@ -1,0 +1,13 @@
+[dependencies]
+bytecodec = "0.4.15"
+httpcodec = "0.2.3"
+wasmedge_wasi_socket = "0.4.1"
+
+[package]
+name = "hello-wasm"
+version = "1.0.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+strip = true

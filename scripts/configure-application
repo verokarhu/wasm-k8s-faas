@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+set -e
+
+WORKDIR=$(pwd)
+
+OCI_DOMAIN=gcr.io
+OCI_REGISTRY="$OCI_DOMAIN/$PROJECT"
+OCI_IMAGE="$OCI_REGISTRY/echo:oci"
+WASM_IMAGE="$OCI_REGISTRY/echo:wasm"
+
+# Build test images
+pushd images
+echo "$BUILDER_KEY" | base64 -d | buildah login -u _json_key --password-stdin "$OCI_DOMAIN"
+
+buildah bud -t "$OCI_IMAGE" -f Dockerfile.oci .
+buildah push "$OCI_IMAGE"
+
+buildah bud --annotation "module.wasm.image/variant=compat-smart" -t "$WASM_IMAGE" -f Dockerfile.wasm .
+buildah push "$WASM_IMAGE"
+popd
+
+MANIFEST_FILE=$(mktemp)
+
+cat << EOF >> "$MANIFEST_FILE"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: config-autoscaler
+ namespace: knative-serving
+data:
+ enable-scale-to-zero: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: echo
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: echo-oci
+  namespace: echo
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/max-scale: "1"
+        autoscaling.knative.dev/target: "1"
+        autoscaling.knative.dev/window: "10s"
+    spec:
+      containers:
+        - image: $OCI_IMAGE
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: echo-wasm
+  namespace: echo
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/max-scale: "1"
+        autoscaling.knative.dev/target: "1"
+        autoscaling.knative.dev/window: "10s"
+        module.wasm.image/variant: compat
+    spec:
+      containers:
+        - image: $WASM_IMAGE
+EOF
+
+sudo microk8s kubectl apply -f "$MANIFEST_FILE"

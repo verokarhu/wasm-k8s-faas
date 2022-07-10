@@ -1,0 +1,13 @@
+[dependencies]
+bytecodec = "0.4.15"
+ctrlc = { version = "3.2", features = ["termination"] }
+httpcodec = "0.2.3"
+
+[package]
+name = "hello-oci"
+version = "1.0.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+strip = true

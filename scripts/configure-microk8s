@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -e
+
+WORKDIR=$(pwd)
+
+# Install WasmEdge
+pushd ~
+curl https://raw.githubusercontent.com/WasmEdge/WasmEdge/55dfc3d6f8671ec163addef3137824dae1c301de/utils/install.sh --output install.sh # https://github.com/WasmEdge/WasmEdge/tree/55dfc3d6f8671ec163addef3137824dae1c301de
+chmod u+x install.sh
+./install.sh --path="/usr/local" --version="0.10.1"
+
+# Build and install version of crun with WasmEdge enabled
+git clone https://github.com/containers/crun
+pushd crun
+git reset --hard 54ebb8ca8bf7e6ddae2eb919f5b82d1d96863dea # crun 1.5
+./autogen.sh
+./configure --with-wasmedge
+make
+make install
+popd
+popd
+
+# Install MicroK8S cluster
+snap install microk8s --classic --channel=1.24/stable
+microk8s stop
+
+# Patch configuration file to enable crun
+pushd /var/snap/microk8s/current/args
+git apply "$WORKDIR/config/containerd-template.toml.patch"
+popd
+microk8s start
+
+# Enable necessary addons
+HOST_IP=$(ip a | grep inet | grep ens4 | cut -f 6 -d ' ' | cut -f 1 -d '/')
+microk8s enable dns hostpath-storage "metallb:$HOST_IP-$HOST_IP"
+
+# Configure knative
+microk8s kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.6.0/serving-crds.yaml
+microk8s kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.6.0/serving-core.yaml
+microk8s kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.6.0/kourier.yaml
+microk8s kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'

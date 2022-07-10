@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Install required packages
+apt update
+apt upgrade -y
+apt install -y buildah make git gcc build-essential pkgconf libtool libsystemd-dev libprotobuf-c-dev libcap-dev libseccomp-dev libyajl-dev go-md2man libtool autoconf python3 automake
+apt autoremove -y
+
+K9S_CHECKSUM=baa54edb4aace44f2c713f3bffe75ee60994f6a8244d3e50b940e8367922e454
+K9S_FILENAME=k9s.tar.gz
